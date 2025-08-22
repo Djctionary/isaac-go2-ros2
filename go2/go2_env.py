@@ -44,18 +44,26 @@ class Go2SimCfg(InteractiveSceneCfg):
     # )
 
     # Go2 Robot
-    unitree_go2: ArticulationCfg = UNITREE_GO2_CFG.replace(prim_path="{ENV_REGEX_NS}/Go2")
+    unitree_go2: ArticulationCfg = UNITREE_GO2_CFG.replace(
+        prim_path="{ENV_REGEX_NS}/Go2",
+        # spawn=UNITREE_GO2_CFG.spawn.replace(
+        #     scale=(0.2, 0.2, 0.2), 
+        # ),
+        init_state=UNITREE_GO2_CFG.init_state.replace(
+            pos=(0.0, 0.0, 0.2),
+        )
+    )
     # Go2 foot contact sensor
     contact_forces = ContactSensorCfg(prim_path="{ENV_REGEX_NS}/Go2/.*_foot", history_length=3, track_air_time=True)
 
-    # Go2 height scanner
+    # Go2 height scanner - 使用默认地面，避免Gibson路径错误
     height_scanner = RayCasterCfg(
         prim_path="{ENV_REGEX_NS}/Go2/base",
         offset=RayCasterCfg.OffsetCfg(pos=(0.0, 0.0, 20)), 
-        attach_yaw_only=True,
+        ray_alignment="yaw",
         pattern_cfg=patterns.GridPatternCfg(resolution=0.1, size=[1.6, 1.0]), 
         debug_vis=False,
-        mesh_prim_paths=["/World/ground"],
+        mesh_prim_paths=["/World/ground"],  # 只使用默认地面，确保路径有效
     )
 
 @configclass
@@ -175,7 +183,13 @@ class Go2RSLEnvCfg(ManagerBasedRLEnvCfg):
         if self.scene.height_scanner is not None:
             self.scene.height_scanner.update_period = self.decimation * self.sim.dt
 
-def camera_follow(env):
+def camera_follow(env, distance=8.0, pitch_deg=45.0):
+    """摄像头跟随机器人
+    Args:
+        env: 环境对象
+        distance: 摄像头距离机器人的距离（可调节）
+        pitch_deg: 摄像头俯仰角（度），相对水平线向上为正。
+    """
     if (env.unwrapped.scene.num_envs == 1):
         robot_position = env.unwrapped.scene["unitree_go2"].data.root_state_w[0, :3].cpu().numpy()
         robot_orientation = env.unwrapped.scene["unitree_go2"].data.root_state_w[0, 3:7].cpu().numpy()
@@ -183,7 +197,10 @@ def camera_follow(env):
                                 robot_orientation[3], robot_orientation[0]])
         yaw = rotation.as_euler('zyx')[0]
         yaw_rotation = R.from_euler('z', yaw).as_matrix()
-        set_camera_view(
-            yaw_rotation.dot(np.asarray([-4.0, 0.0, 5.0])) + robot_position,
-            robot_position
-        )
+        
+        # 计算摄像头位置，使用可调节的距离与俯仰角
+        elev_rad = np.deg2rad(pitch_deg)
+        camera_offset = np.asarray([-distance * np.cos(elev_rad), 0.0, distance * np.sin(elev_rad)])
+        camera_position = yaw_rotation.dot(camera_offset) + robot_position
+        
+        set_camera_view(camera_position, robot_position)

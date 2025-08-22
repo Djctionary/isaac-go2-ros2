@@ -1,0 +1,11 @@
+# Space1 基础场景配置
+scene_id: space1
+description: "基础测试房间"
+room_size: [10, 10, 3]
+has_walls: true
+has_furniture: true
+semantic_labels:
+  - floor
+  - wall
+  - ceiling
+  - furniture
