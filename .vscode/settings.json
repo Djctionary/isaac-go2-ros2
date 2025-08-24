@@ -1,0 +1,10 @@
+{
+    "python.analysis.extraPaths": [
+        ".",
+        "./go2",
+        "./env",
+        "./ros2"
+    ],
+    "python.analysis.autoImportCompletions": true,
+    "python.analysis.typeCheckingMode": "basic"
+}
