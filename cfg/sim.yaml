@@ -13,6 +13,12 @@ sensor:
   color_image: True
   depth_image: True
   semantic_segmentation: True
+  enable_imu: True
+  imu_freq: 200  # Hz
+  imu_noise: False
+  imu:
+    accel_noise_std: 0.02   # m/s^2
+    gyro_noise_std: 0.001   # rad/s
 
 sim_app:
   anti_aliasing: 0

@@ -2,7 +2,7 @@ import rclpy
 from rclpy.node import Node
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import PoseStamped, Twist, TransformStamped
-from sensor_msgs.msg import PointCloud2, PointField, Image
+from sensor_msgs.msg import PointCloud2, PointField, Image, Imu
 from sensor_msgs_py import point_cloud2
 from tf2_ros import TransformBroadcaster
 from tf2_ros.static_transform_broadcaster import StaticTransformBroadcaster
@@ -23,9 +23,10 @@ from isaacsim.ros2.bridge import collect_namespace, read_camera_info
 
 
 class RobotDataManager(Node):
-    def __init__(self, env, lidar_annotators, cameras, cfg):
+    def __init__(self, env, lidar_annotators, cameras, sensor_manager, cfg):
         super().__init__("robot_data_manager")
         self.cfg = cfg
+        self.sensor_manager = sensor_manager
         self.create_ros_time_graph()
         sim_time_set = False
         while (rclpy.ok() and sim_time_set==False):
@@ -45,6 +46,7 @@ class RobotDataManager(Node):
         self.pose_pub = []
         self.lidar_pub = []
         self.semantic_seg_img_vis_pub = []
+        self.imu_pub = []
 
         # ROS2 Subscriber
         self.cmd_vel_sub = []
@@ -66,6 +68,10 @@ class RobotDataManager(Node):
                 self.semantic_seg_img_vis_pub.append(
                     self.create_publisher(Image, "unitree_go2/front_cam/semantic_segmentation_image_vis", 10)
                 )
+                if (self.cfg.sensor.enable_imu):
+                    self.imu_pub.append(
+                        self.create_publisher(Imu, "unitree_go2/imu/data", 10)
+                    )
                 self.cmd_vel_sub.append(
                     self.create_subscription(Twist, "unitree_go2/cmd_vel", 
                     lambda msg: self.cmd_vel_callback(msg, 0), 10)
@@ -85,6 +91,10 @@ class RobotDataManager(Node):
                 self.semantic_seg_img_vis_pub.append(
                     self.create_publisher(Image, f"unitree_go2_{i}/front_cam/semantic_segmentation_image_vis", 10)
                 )
+                if (self.cfg.sensor.enable_imu):
+                    self.imu_pub.append(
+                        self.create_publisher(Imu, f"unitree_go2_{i}/imu/data", 10)
+                    )
                 self.cmd_vel_sub.append(
                     self.create_subscription(Twist, f"unitree_go2_{i}/cmd_vel", 
                     lambda msg, env_idx=i: self.cmd_vel_callback(msg, env_idx), 10)
@@ -100,8 +110,10 @@ class RobotDataManager(Node):
         # use wall time for lidar and odom pub
         self.odom_pose_freq = 50.0
         self.lidar_freq = 15.0
+        self.imu_freq = float(self.cfg.sensor.imu_freq) if hasattr(self.cfg.sensor, "imu_freq") else 200.0
         self.odom_pose_pub_time = time.time()
         self.lidar_pub_time = time.time() 
+        self.imu_pub_time = time.time()
         self.create_static_transform()
         self.create_camera_publisher()  
 
@@ -193,6 +205,28 @@ class RobotDataManager(Node):
             
             # Publish the transform
             camera_broadcaster.sendTransform(base_cam_transform)
+
+            # -------------------------------------------------------------
+            # IMU frame (coincident with base_link by default)
+            if (self.cfg.sensor.enable_imu):
+                imu_broadcaster = StaticTransformBroadcaster(self)
+                base_imu_transform = TransformStamped()
+                base_imu_transform.header.stamp = self.get_clock().now().to_msg()
+                if (self.num_envs == 1):
+                    base_imu_transform.header.frame_id = "unitree_go2/base_link"
+                    base_imu_transform.child_frame_id = "unitree_go2/imu_link"
+                else:
+                    base_imu_transform.header.frame_id = f"unitree_go2_{i}/base_link"
+                    base_imu_transform.child_frame_id = f"unitree_go2_{i}/imu_link"
+
+                base_imu_transform.transform.translation.x = 0.0
+                base_imu_transform.transform.translation.y = 0.0
+                base_imu_transform.transform.translation.z = 0.0
+                base_imu_transform.transform.rotation.x = 0.0
+                base_imu_transform.transform.rotation.y = 0.0
+                base_imu_transform.transform.rotation.z = 0.0
+                base_imu_transform.transform.rotation.w = 1.0
+                imu_broadcaster.sendTransform(base_imu_transform)
     
     def create_camera_publisher(self):
         # self.pub_image_graph()
@@ -292,13 +326,17 @@ class RobotDataManager(Node):
     def pub_ros2_data(self):
         pub_odom_pose = False
         pub_lidar = False
+        pub_imu = False
         dt_odom_pose = time.time() - self.odom_pose_pub_time
         dt_lidar = time.time() - self.lidar_pub_time
+        dt_imu = time.time() - self.imu_pub_time
         if (dt_odom_pose >= 1./self.odom_pose_freq):
             pub_odom_pose = True
         
         if (dt_lidar >= 1./self.lidar_freq):
             pub_lidar = True
+        if (dt_imu >= 1./self.imu_freq):
+            pub_imu = True
 
         if (pub_odom_pose):
             self.odom_pose_pub_time = time.time()
@@ -316,6 +354,44 @@ class RobotDataManager(Node):
                 self.lidar_pub_time = time.time()
                 for i in range(self.num_envs):
                     self.publish_lidar_data(self.lidar_annotators[i].get_data()["data"].reshape(-1, 3), i)
+
+        # IMU publish
+        if (self.cfg.sensor.enable_imu and len(self.imu_pub) == self.num_envs and pub_imu):
+            self.imu_pub_time = time.time()
+            # 计算 IMU 数据（基于物理引擎）
+            add_noise = bool(self.cfg.sensor.imu_noise) if hasattr(self.cfg.sensor, "imu_noise") else False
+            accel_noise_std = float(self.cfg.sensor.imu.accel_noise_std) if hasattr(self.cfg.sensor, "imu") else 0.0
+            gyro_noise_std = float(self.cfg.sensor.imu.gyro_noise_std) if hasattr(self.cfg.sensor, "imu") else 0.0
+            imu_list = self.sensor_manager.compute_imu_from_physics(self.env, add_noise, accel_noise_std, gyro_noise_std)
+            for i in range(self.num_envs):
+                self.publish_imu(imu_list[i], i)
+
+    def publish_imu(self, imu_data, env_idx):
+        msg = Imu()
+        msg.header.stamp = self.get_clock().now().to_msg()
+        if (self.num_envs == 1):
+            msg.header.frame_id = "unitree_go2/imu_link"
+        else:
+            msg.header.frame_id = f"unitree_go2_{env_idx}/imu_link"
+
+        # orientation (wxyz -> ROS uses xyzw)
+        qw, qx, qy, qz = imu_data["orientation"]
+        msg.orientation.w = float(qw)
+        msg.orientation.x = float(qx)
+        msg.orientation.y = float(qy)
+        msg.orientation.z = float(qz)
+
+        # angular velocity (rad/s)
+        msg.angular_velocity.x = float(imu_data["angular_velocity"][0])
+        msg.angular_velocity.y = float(imu_data["angular_velocity"][1])
+        msg.angular_velocity.z = float(imu_data["angular_velocity"][2])
+
+        # linear acceleration (m/s^2)
+        msg.linear_acceleration.x = float(imu_data["linear_acceleration"][0])
+        msg.linear_acceleration.y = float(imu_data["linear_acceleration"][1])
+        msg.linear_acceleration.z = float(imu_data["linear_acceleration"][2])
+
+        self.imu_pub[env_idx].publish(msg)
 
     def cmd_vel_callback(self, msg, env_idx):
         go2_ctrl.base_vel_cmd_input[env_idx][0] = msg.linear.x

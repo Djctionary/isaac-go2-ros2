@@ -168,7 +168,7 @@ def create_igibson_env(env_name="RS", keep_physics=False):
         print(f"Loading Gibson environment: {env_name}")
         
         # 首先检查是否有转换后的 USD 文件
-        usd_file = f"/home/vergil/data/igibson/{env_name}/{env_name}.usd"
+        usd_file = f"/home/vergil/dataset/igibson/{env_name}/{env_name}.usd"
         gibson_loaded = False
         
         if os.path.exists(usd_file):

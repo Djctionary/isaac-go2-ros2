@@ -72,7 +72,7 @@ def run_simulator(cfg):
     
     # ROS2 Bridge
     rclpy.init()
-    dm = go2_ros2_bridge.RobotDataManager(env, lidar_annotators, cameras, cfg)
+    dm = go2_ros2_bridge.RobotDataManager(env, lidar_annotators, cameras, sm, cfg)
 
     # Run simulation
     sim_step_dt = float(go2_env_cfg.sim.dt * go2_env_cfg.decimation)

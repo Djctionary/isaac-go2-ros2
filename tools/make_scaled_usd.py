@@ -100,7 +100,7 @@ def resolve_source_usd(env_token: str, project_root: str) -> str:
 		return os.path.abspath(os.path.join(project_root, f"gibson_usd/{name}/{name}.usd"))
 	elif env_token.startswith("igibson-"):
 		name = env_token[len("igibson-"):]
-		return os.path.abspath(f"/home/vergil/data/igibson/{name}/{name}.usd")
+		return os.path.abspath(f"/home/vergil/dataset/igibson/{name}/{name}.usd")
 	else:
 		# 允许用户直接传绝对/相对 USD 路径
 		return os.path.abspath(env_token)
@@ -111,11 +111,11 @@ def main():
 	parser.add_argument("env", help="环境标识（gibson-*/igibson-*），或直接传 USD 路径")
 	parser.add_argument("--scale", type=float, default=80.0, help="缩放倍数，默认 80.0")
 	parser.add_argument("--prim", type=str, default=None, help="可选：目标文件内要引用的 prim 路径（默认使用 defaultPrim）")
-	parser.add_argument("--x", type=float, default=2.6, help="X 轴平移（米），默认 0.0")
+	parser.add_argument("--x", type=float, default=-1.9, help="X 轴平移（米），默认 0.0")
 	parser.add_argument("--y", type=float, default=-0.6, help="Y 轴平移（米），默认 0.0")
-	parser.add_argument("--z", type=float, default=0.02, help="Z 轴平移（米），默认 0.0")
-	parser.add_argument("--roll", type=float, default=270.0, help="绕 X 轴旋转（度），默认 0.0")
-	parser.add_argument("--pitch", type=float, default=0.0, help="绕 Y 轴旋转（度），默认 0.0")
+	parser.add_argument("--z", type=float, default=-4.3, help="Z 轴平移（米），默认 0.0")
+	parser.add_argument("--roll", type=float, default=0.5, help="绕 X 轴旋转（度），默认 0.0")
+	parser.add_argument("--pitch", type=float, default=4.6, help="绕 Y 轴旋转（度），默认 0.0")
 	parser.add_argument("--yaw", type=float, default=90.0, help="绕 Z 轴旋转（度），默认 0.0")
 	parser.add_argument("--up-axis", dest="up_axis", choices=["auto", "y", "z"], default="auto", help="包装 USD 的 upAxis：auto 与源对齐，或强制为 y/z")
 	args = parser.parse_args()
