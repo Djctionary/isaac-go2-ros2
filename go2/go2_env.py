@@ -12,6 +12,7 @@ from isaaclab.envs import ManagerBasedRLEnvCfg
 from isaaclab.managers import SceneEntityCfg
 from isaaclab.utils.noise import UniformNoiseCfg
 from isaacsim.core.utils.viewports import set_camera_view
+import isaacsim.core.utils.prims as prim_utils
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 import go2.go2_ctrl as go2_ctrl
@@ -229,7 +230,6 @@ class Go2SimCfg(InteractiveSceneCfg):
         debug_vis=False,
         mesh_prim_paths=["/World/ground"],  # 只使用默认地面，确保路径有效
     )
-
 
     human_obstacle_1: RigidObjectCfg = RigidObjectCfg(
         prim_path="{ENV_REGEX_NS}/HumanObstacles/Human_01",

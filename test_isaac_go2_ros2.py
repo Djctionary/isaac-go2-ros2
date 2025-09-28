@@ -121,6 +121,22 @@ def run_simulator(cfg):
     go2_env_cfg.decimation = math.ceil(1./go2_env_cfg.sim.dt/cfg.freq)
     go2_env_cfg.sim.render_interval = go2_env_cfg.decimation
     go2_ctrl.init_base_vel_cmd(cfg.num_envs)
+    
+    # 预创建动态障碍物Prim - 必须在环境创建前
+    if cfg.env_name == "obstacle-dynamic":
+        import isaacsim.core.utils.prims as prim_utils
+        
+        num_envs = go2_env_cfg.scene.num_envs
+        for env_id in range(num_envs):
+            parent_path = f"/World/envs/env_{env_id}/HumanObstacles"
+            prim_utils.create_prim(parent_path, "Xform")
+            
+            # for human_id in range(3):
+            #     human_path = f"{parent_path}/Human_{human_id+1:02d}"
+            #     prim_utils.create_prim(human_path, "Capsule")
+        
+        print("✅ 预创建人形障碍物Prim完成")
+    
     # env, policy = go2_ctrl.get_rsl_flat_policy(go2_env_cfg)
     env, policy = go2_ctrl.get_rsl_rough_policy(go2_env_cfg)
 
