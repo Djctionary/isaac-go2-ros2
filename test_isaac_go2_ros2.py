@@ -33,6 +33,8 @@ elif args_cli.env_name:
 app_launcher = AppLauncher(args_cli)
 simulation_app = app_launcher.app
 
+import carb.settings
+carb.settings.get_settings().set("/app/extensions/omni.sensors.nv.lidar.enabled", False)
 
 """Rest everything follows."""
 
@@ -129,6 +131,8 @@ def run_simulator(cfg):
         sim_env.create_obstacle_medium_env() # obstacles medium
     elif (cfg.env_name == "obstacle-sparse"):
         sim_env.create_obstacle_sparse_env() # obstacles sparse
+    elif (cfg.env_name == "obstacle-dynamic"):
+        sim_env.create_obstacle_dynamic_env() # professional dynamic obstacles
     elif (cfg.env_name == "warehouse"):
         sim_env.create_warehouse_env() # warehouse
     elif (cfg.env_name == "warehouse-forklifts"):
@@ -214,6 +218,13 @@ def run_simulator(cfg):
                 obs, _ = env.reset()
                 # 手动瞬移根位姿
                 set_robot_root_pose(env, x=0.0, y=0.0, z=0.2, yaw_deg=0.0)
+                
+                # 重置动态障碍物位置
+                if cfg.env_name == "obstacle-dynamic":
+                    try:
+                        sim_env.reset_human_obstacles(env)
+                    except Exception as e:
+                        print(f"⚠️ 重置动态障碍物失败: {e}")
                 pending_reset = False
                 reset_freeze_steps = 15
                 reset_warmup_total = 45
@@ -238,6 +249,13 @@ def run_simulator(cfg):
 
             # step the environment
             obs, _, _, _ = env.step(actions)
+
+            # 更新专业级动态障碍物 - 使用RigidObjectCfg标准架构
+            if cfg.env_name == "obstacle-dynamic":
+                try:
+                    sim_env.update_professional_dynamic_obstacles(sim_step_dt, env)
+                except Exception as e:
+                    print(f"⚠️ 更新动态障碍物失败: {e}")  # 显示错误信息以便调试
 
             # # ROS2 data
             dm.pub_ros2_data()

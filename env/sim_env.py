@@ -7,6 +7,8 @@ except ModuleNotFoundError:
 from isaaclab.terrains import TerrainImporterCfg, TerrainImporter
 from isaaclab.terrains import TerrainGeneratorCfg
 from env.terrain_cfg import HfUniformDiscreteObstaclesTerrainCfg
+from go2.go2_env import create_human_obstacle_system as create_controller
+from go2.go2_env import get_human_movement_controller
 import omni.replicator.core as rep
 try:
     import omni.usd
@@ -106,7 +108,63 @@ def create_obstacle_dense_env():
         ),
         visual_material=None,     
     )
-    TerrainImporter(terrain) 
+    TerrainImporter(terrain)
+
+
+def create_obstacle_dynamic_env():
+    """
+    创建专业级动态障碍物环境
+    参考无人机导航环境，使用RigidObject创建真正的动态障碍物
+    """
+    add_semantic_label()
+    
+    # 基础静态地形 - 使用稳定的配置避免维度错误
+    terrain = TerrainImporterCfg(
+        prim_path="/World/obstacleTerrain",
+        terrain_type="generator",
+        terrain_generator=TerrainGeneratorCfg(
+            seed=0,
+            size=(50, 50),  # 使用标准尺寸避免维度问题
+            color_scheme="height",
+            sub_terrains={"t1": HfUniformDiscreteObstaclesTerrainCfg(
+                seed=0,
+                size=(50, 50),
+                obstacle_width_range=(0.5, 1.0),
+                obstacle_height_range=(1.0, 2.0),
+                num_obstacles=30,  # 减少静态障碍物为动态对象留空间
+                obstacles_distance=3.0,
+                border_width=5,
+                avoid_positions=[[0, 0]]
+            )},
+        ),
+        visual_material=None,     
+    )
+    TerrainImporter(terrain)
+    
+    # 创建人员障碍物系统 - 使用RigidObjectCfg标准架构
+    create_human_obstacle_system()
+    
+    print("🏗️ 专业级动态障碍物环境已创建")
+    print("🎯 包含人员动态障碍物系统")
+
+def create_human_obstacle_system(cfg=None):
+    """创建人员障碍物系统 - 使用RigidObjectCfg标准架构"""
+    return create_controller(cfg)
+
+def update_professional_dynamic_obstacles(dt, env=None):
+    """更新专业级动态障碍物 - 使用RigidObjectCfg标准架构"""
+    from go2.go2_env import get_human_movement_controller
+    controller = get_human_movement_controller()
+    if controller is not None and env is not None:
+        controller.update_positions(env, dt)
+
+def reset_human_obstacles(env=None):
+    """重置人员障碍物到初始位置 - 使用RigidObjectCfg标准架构"""
+    from go2.go2_env import get_human_movement_controller
+    controller = get_human_movement_controller()
+    if controller is not None and env is not None:
+        controller.reset(env)
+
 
 def create_warehouse_env():
     add_semantic_label()
