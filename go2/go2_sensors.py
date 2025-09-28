@@ -39,23 +39,23 @@ class SensorManager:
                 orientation=rot_utils.euler_angles_to_quats(np.array([0, 0, 0]), degrees=True),
             )
             camera.initialize()
-            # camera.set_focal_length(1.5)
+            camera.set_focal_length(1.5)
             
-            # 通过 USD 属性设置相机参数
-            try:
-                import omni.usd
-                from pxr import UsdGeom
-                stage = omni.usd.get_context().get_stage()
-                camera_prim = stage.GetPrimAtPath(camera.prim_path)
-                if camera_prim and camera_prim.IsValid():
-                    # 设置近平面
-                    camera_prim.GetAttribute("clippingRange").Set((0.01, 100.0)) 
-                    # 设置视野角度
-                    # camera_prim.GetAttribute("horizontalAperture").Set(1.5)
-                    horiz_aperture = camera_prim.GetAttribute("horizontalAperture").Get()
-                    print(f"✅ 已设置相机 {env_idx} 的视野角度: {horiz_aperture}")
-            except Exception as e:
-                print(f"⚠️ 设置相机参数失败: {e}")
+            # # 通过 USD 属性设置相机参数
+            # try:
+            #     import omni.usd
+            #     from pxr import UsdGeom
+            #     stage = omni.usd.get_context().get_stage()
+            #     camera_prim = stage.GetPrimAtPath(camera.prim_path)
+            #     if camera_prim and camera_prim.IsValid():
+            #         # 设置裁剪平面 - 限制远平面以减少深度范围
+            #         camera_prim.GetAttribute("clippingRange").Set((0.01, 20.0)) 
+            #         # 设置视野角度
+            #         # camera_prim.GetAttribute("horizontalAperture").Set(1.5)
+            #         horiz_aperture = camera_prim.GetAttribute("horizontalAperture").Get()
+            #         print(f"✅ 已设置相机 {env_idx} 的视野角度: {horiz_aperture}")
+            # except Exception as e:
+            #     print(f"⚠️ 设置相机参数失败: {e}")
             
             cameras.append(camera)
         return cameras

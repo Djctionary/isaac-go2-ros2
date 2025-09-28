@@ -33,9 +33,6 @@ elif args_cli.env_name:
 app_launcher = AppLauncher(args_cli)
 simulation_app = app_launcher.app
 
-import carb.settings
-carb.settings.get_settings().set("/app/extensions/omni.sensors.nv.lidar.enabled", False)
-
 """Rest everything follows."""
 
 import torch
@@ -131,7 +128,7 @@ def run_simulator(cfg):
             parent_path = f"/World/envs/env_{env_id}/HumanObstacles"
             prim_utils.create_prim(parent_path, "Xform")
             
-            # for human_id in range(3):
+            # for human_id in range(3): 
             #     human_path = f"{parent_path}/Human_{human_id+1:02d}"
             #     prim_utils.create_prim(human_path, "Capsule")
         

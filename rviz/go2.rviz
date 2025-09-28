@@ -143,11 +143,11 @@ Visualization Manager:
       Value: true
     - Class: rviz_default_plugins/Image
       Enabled: true
-      Max Value: 1
+      Max Value: 10
       Median window: 5
       Min Value: 0
       Name: depth_image
-      Normalize Range: true
+      Normalize Range: false
       Topic:
         Depth: 5
         Durability Policy: Volatile
