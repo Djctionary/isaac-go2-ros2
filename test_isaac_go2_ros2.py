@@ -37,7 +37,7 @@ simulation_app = app_launcher.app
 
 import torch
 
-from go2.go2_env import Go2RSLEnvCfg, camera_follow
+from go2.self_go2_env import Go2RSLEnvCfg, camera_follow
 import env.sim_env as sim_env
 import go2.go2_sensors as go2_sensors
 import omni
@@ -128,10 +128,6 @@ def run_simulator(cfg):
             parent_path = f"/World/envs/env_{env_id}/HumanObstacles"
             prim_utils.create_prim(parent_path, "Xform")
             
-            # for human_id in range(3): 
-            #     human_path = f"{parent_path}/Human_{human_id+1:02d}"
-            #     prim_utils.create_prim(human_path, "Capsule")
-        
         print("✅ 预创建人形障碍物Prim完成")
     
     # env, policy = go2_ctrl.get_rsl_flat_policy(go2_env_cfg)

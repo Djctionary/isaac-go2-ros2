@@ -7,8 +7,7 @@ except ModuleNotFoundError:
 from isaaclab.terrains import TerrainImporterCfg, TerrainImporter
 from isaaclab.terrains import TerrainGeneratorCfg
 from env.terrain_cfg import HfUniformDiscreteObstaclesTerrainCfg
-from go2.go2_env import create_human_obstacle_system as create_controller
-from go2.go2_env import get_human_movement_controller
+from go2.self_go2_env import create_human_obstacle_system as create_controller
 import omni.replicator.core as rep
 try:
     import omni.usd
@@ -153,14 +152,14 @@ def create_human_obstacle_system(cfg=None):
 
 def update_professional_dynamic_obstacles(dt, env=None):
     """更新专业级动态障碍物 - 使用RigidObjectCfg标准架构"""
-    from go2.go2_env import get_human_movement_controller
+    from go2.self_go2_env import get_human_movement_controller
     controller = get_human_movement_controller()
     if controller is not None and env is not None:
         controller.update_positions(env, dt)
 
 def reset_human_obstacles(env=None):
     """重置人员障碍物到初始位置 - 使用RigidObjectCfg标准架构"""
-    from go2.go2_env import get_human_movement_controller
+    from go2.self_go2_env import get_human_movement_controller
     controller = get_human_movement_controller()
     if controller is not None and env is not None:
         controller.reset(env)

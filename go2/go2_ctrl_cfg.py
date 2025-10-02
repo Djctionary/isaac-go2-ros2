@@ -73,5 +73,5 @@ unitree_go2_rough_cfg = {
         'wandb_project': 'orbit', 
         'resume': False, 
         'load_run': 'unitree_go2', 
-        'load_checkpoint': 'rough_model_7850.pt'
+        'load_checkpoint': 'rough_model_149.pt'
 }
