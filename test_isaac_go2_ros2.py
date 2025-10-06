@@ -81,12 +81,18 @@ def set_robot_root_pose(env, x=0.0, y=0.0, z=0.0, yaw_deg=0.0):
         zq = math.sin(yaw_rad/2.0)
         rs[0, 3:7] = torch.tensor([w, 0.0, 0.0, zq], device=rs.device)
         rs[0, 7:13] = 0.0
-        if hasattr(robot, "write_root_state_to_sim"):
-            robot.write_root_state_to_sim(rs)
-        elif hasattr(robot, "set_world_poses"):
-            pos = rs[0, 0:3].unsqueeze(0).cpu().numpy()
-            quat = rs[0, 3:7].unsqueeze(0).cpu().numpy()
-            robot.set_world_poses(pos, quat)
+        robot.write_root_state_to_sim(rs)
+
+        jpos = robot.data.default_joint_pos.clone()
+        jvel = robot.data.default_joint_vel.clone()
+        robot.write_joint_state_to_sim(jpos, jvel)
+
+        # 清控制目标（避免上一帧目标“抬脚”）
+        robot.set_joint_position_target(jpos)
+
+        # 清内部缓存（关键一步）
+        robot.reset()
+
         if hasattr(env.unwrapped, 'scene') and hasattr(env.unwrapped.scene, 'write_data_to_sim'):
             env.unwrapped.scene.write_data_to_sim()
         return True
@@ -113,7 +119,10 @@ def update_height_scanner_for_gibson(go2_env_cfg):
 def run_simulator(cfg):
     disable_direct_gpu_api()
     # Go2 Environment setup
-    go2_env_cfg = Go2RSLEnvCfg()
+    if (cfg.env_name == "obstacle-dynamic"):
+        go2_env_cfg = Go2RSLEnvCfg(human_obstacle_system=True)
+    else:
+        go2_env_cfg = Go2RSLEnvCfg()
     go2_env_cfg.scene.num_envs = cfg.num_envs
     go2_env_cfg.decimation = math.ceil(1./go2_env_cfg.sim.dt/cfg.freq)
     go2_env_cfg.sim.render_interval = go2_env_cfg.decimation
@@ -226,7 +235,7 @@ def run_simulator(cfg):
             if pending_reset:
                 obs, _ = env.reset()
                 # 手动瞬移根位姿
-                set_robot_root_pose(env, x=0.0, y=0.0, z=0.2, yaw_deg=0.0)
+                set_robot_root_pose(env, x=0.0, y=0.0, z=0.0, yaw_deg=0.0)
                 
                 # 重置动态障碍物位置
                 if cfg.env_name == "obstacle-dynamic":
@@ -257,7 +266,8 @@ def run_simulator(cfg):
                 reset_warmup_steps -= 1
 
             # step the environment
-            obs, _, _, _ = env.step(actions)
+            obs, rew, _, _ = env.step(actions)
+            avg_rew = float(rew.mean().item())
 
             # 更新专业级动态障碍物 - 使用RigidObjectCfg标准架构
             if cfg.env_name == "obstacle-dynamic":
@@ -288,7 +298,7 @@ def run_simulator(cfg):
             pos_str = f"XYZ=({pos[0]:.2f}, {pos[1]:.2f}, {pos[2]:.2f})"
         except Exception:
             pos_str = "XYZ=(nan, nan, nan)"
-        print(f"\rStep time: {actual_loop_time*1000:.2f}ms, RTF: {rtf:.2f}, {pos_str}", end='', flush=True)
+        print(f"\rStep time: {actual_loop_time*1000:.2f}ms, RTF: {rtf:.2f}, avgR: {avg_rew:.3f}, {pos_str}", end='', flush=True)
     
     dm.destroy_node()
     rclpy.shutdown()

@@ -130,8 +130,8 @@ def create_obstacle_dynamic_env():
                 size=(50, 50),
                 obstacle_width_range=(0.5, 1.0),
                 obstacle_height_range=(1.0, 2.0),
-                num_obstacles=30,  # 减少静态障碍物为动态对象留空间
-                obstacles_distance=3.0,
+                num_obstacles=200,  
+                obstacles_distance=2.0,
                 border_width=5,
                 avoid_positions=[[0, 0]]
             )},

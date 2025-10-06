@@ -23,20 +23,31 @@ import torch
 
 # Human obstacle movement controller for RigidObjectCfg-based system
 class HumanMovementController:
-    """Controls movement of human obstacles using IsaacLab RigidObjectCfg system"""
+    """Controls movement of human obstacles using IsaacLab RigidObjectCfg system
     
-    def __init__(self, num_humans=3, movement_pattern="sinusoidal", amplitude=3.0, frequency=0.3):
+    Movement pattern: 
+    - First 5 humans (0-4): move along X axis with same velocity
+    - Last 5 humans (5-9): move along Y axis with same velocity
+    """
+    
+    def __init__(self, num_humans=10, amplitude=3.0, frequency=0.3):
         self.num_humans = num_humans
-        self.movement_pattern = movement_pattern
         self.amplitude = amplitude
         self.frequency = frequency
         self.simulation_time = 0.0
         
-        # Define initial positions for humans
+        # Define initial positions for 10 humans (distributed around the robot)
         self.initial_positions = [
-            (5.0, 8.0, 0.9), 
-            (-6.0, 5.0, 0.9), 
-            (8.0, -5.0, 0.9)
+            (5.0, 8.0, 0.9),    # 人形障碍 1 - 前右
+            (-6.0, 5.0, 0.9),   # 人形障碍 2 - 左前
+            (8.0, -5.0, 0.9),   # 人形障碍 3 - 右后
+            (-4.0, -7.0, 0.9),  # 人形障碍 4 - 左后
+            (10.0, 2.0, 0.9),   # 人形障碍 5 - 右侧
+            (-8.0, -2.0, 0.9),  # 人形障碍 6 - 左侧
+            (3.0, -10.0, 0.9),  # 人形障碍 7 - 后方
+            (0.0, 12.0, 0.9),   # 人形障碍 8 - 正前方
+            (7.0, 0.0, 0.9),    # 人形障碍 9 - 正右方
+            (-5.0, 10.0, 0.9),  # 人形障碍 10 - 左前远处
         ][:num_humans]  # Take only the required number
     
     def update_positions(self, env, dt: float):
@@ -44,11 +55,14 @@ class HumanMovementController:
         self.simulation_time += dt
         
         try:
-            # Get the three independent human obstacles from the scene
-            human_1 = env.unwrapped.scene["human_obstacle_1"]
-            human_2 = env.unwrapped.scene["human_obstacle_2"]
-            human_3 = env.unwrapped.scene["human_obstacle_3"]
-            human_objects = [human_1, human_2, human_3]
+            # Get all 10 human obstacles from the scene
+            human_objects = []
+            for i in range(1, 11):  # human_obstacle_1 to human_obstacle_10
+                try:
+                    human_obj = env.unwrapped.scene[f"human_obstacle_{i}"]
+                    human_objects.append(human_obj)
+                except KeyError:
+                    break  # Stop if obstacle doesn't exist
             
             # Update each human obstacle independently
             for i, human_obj in enumerate(human_objects[:self.num_humans]):
@@ -68,39 +82,23 @@ class HumanMovementController:
             print(f"⚠️ 更新人形障碍物位置失败: {e}")
     
     def _calculate_movement_position(self, human_id: int) -> Tuple[float, float, float]:
-        """Calculate new position for a human obstacle"""
+        """Calculate new position - first 5 move along X axis, last 5 move along Y axis"""
         if human_id >= len(self.initial_positions):
             return (0.0, 0.0, 0.9)
             
         original_pos = self.initial_positions[human_id]
         time = self.simulation_time
         
-        if self.movement_pattern == "sinusoidal":
-            # Different movement patterns for each human
-            if human_id == 0:
-                x = original_pos[0] + self.amplitude * math.sin(time * self.frequency)
-                y = original_pos[1]
-            elif human_id == 1:
-                x = original_pos[0]
-                y = original_pos[1] + self.amplitude * math.sin(time * self.frequency * 1.3)
-            else:
-                x = original_pos[0] + self.amplitude * math.sin(time * self.frequency)
-                y = original_pos[1] + self.amplitude * math.cos(time * self.frequency)
-                
-        elif self.movement_pattern == "circular":
-            # Circular movement
-            radius = self.amplitude
-            x = original_pos[0] + radius * math.cos(time * self.frequency)
-            y = original_pos[1] + radius * math.sin(time * self.frequency)
-            
-        elif self.movement_pattern == "linear":
-            # Linear movement
+        # First 5 humans (0-4): move along X axis
+        # Last 5 humans (5-9): move along Y axis
+        if human_id < 5:
+            # X axis movement
             x = original_pos[0] + self.amplitude * math.sin(time * self.frequency)
             y = original_pos[1]
-            
         else:
-            # Static position
-            x, y = original_pos[0], original_pos[1]
+            # Y axis movement
+            x = original_pos[0]
+            y = original_pos[1] + self.amplitude * math.sin(time * self.frequency)
         
         z = original_pos[2]  # Keep height constant
         return (x, y, z)
@@ -110,11 +108,14 @@ class HumanMovementController:
         self.simulation_time = 0.0
         
         try:
-            # Get the three independent human obstacles from the scene
-            human_1 = env.unwrapped.scene["human_obstacle_1"]
-            human_2 = env.unwrapped.scene["human_obstacle_2"]
-            human_3 = env.unwrapped.scene["human_obstacle_3"]
-            human_objects = [human_1, human_2, human_3]
+            # Get all 10 human obstacles from the scene
+            human_objects = []
+            for i in range(1, 11):  # human_obstacle_1 to human_obstacle_10
+                try:
+                    human_obj = env.unwrapped.scene[f"human_obstacle_{i}"]
+                    human_objects.append(human_obj)
+                except KeyError:
+                    break  # Stop if obstacle doesn't exist
             
             # Reset each human obstacle independently
             for i, human_obj in enumerate(human_objects[:self.num_humans]):
@@ -130,7 +131,7 @@ class HumanMovementController:
                     root_pose=torch.cat([position_tensor, orientation_tensor], dim=-1)
                 )
             
-            print("✅ 已重置人形障碍物到初始位置")
+            print(f"✅ 已重置 {len(human_objects)} 个人形障碍物到初始位置")
             
         except Exception as e:
             print(f"⚠️ 重置人形障碍物位置失败: {e}")
@@ -149,17 +150,16 @@ def create_human_obstacle_system(cfg=None):
     
     try:
         # Create movement controller with default or custom parameters
-        if cfg is not None and hasattr(cfg, 'movement_pattern'):
+        if cfg is not None:
             _movement_controller = HumanMovementController(
-                num_humans=3,
-                movement_pattern=cfg.movement_pattern,
+                num_humans=getattr(cfg, 'num_humans', 10),
                 amplitude=getattr(cfg, 'movement_amplitude', 3.0),
                 frequency=getattr(cfg, 'movement_frequency', 0.3)
             )
         else:
-            _movement_controller = HumanMovementController()
+            _movement_controller = HumanMovementController(num_humans=10)
         
-        print("✅ 人形障碍物运动控制器创建成功")
+        print(f"✅ 人形障碍物运动控制器创建成功 (数量: {_movement_controller.num_humans}, 前5个沿X轴运动, 后5个沿Y轴运动)")
         return True
         
     except Exception as e:
@@ -231,14 +231,16 @@ class Go2SimCfg(InteractiveSceneCfg):
         mesh_prim_paths=["/World/ground"],  # 只使用默认地面，确保路径有效
     )
 
+@configclass
+class Go2SimWithHumansCfg(Go2SimCfg):
     human_obstacle_1: RigidObjectCfg = RigidObjectCfg(
         prim_path="{ENV_REGEX_NS}/HumanObstacles/Human_01",
         spawn=sim_utils.CapsuleCfg(
             radius=0.2, height=1.6, axis="Z",
             rigid_props=sim_utils.RigidBodyPropertiesCfg(
-                rigid_body_enabled=True,            # 动态刚体
-                kinematic_enabled=False,            # 由物理驱动（别设成kinematic）
-                solver_position_iteration_count=16, # 稳定性
+                rigid_body_enabled=True,
+                kinematic_enabled=False,
+                solver_position_iteration_count=16,
                 solver_velocity_iteration_count=2,
                 max_depenetration_velocity=5.0
             ),
@@ -248,7 +250,7 @@ class Go2SimCfg(InteractiveSceneCfg):
                 rest_offset=0.0
             ),
             visual_material=sim_utils.PreviewSurfaceCfg(
-                diffuse_color=(0.9, 0.2, 0.2)  # 红色
+                diffuse_color=(0.9, 0.2, 0.2)
             )
         ),
         init_state=RigidObjectCfg.InitialStateCfg(pos=(5.0, 8.0, 0.9))
@@ -259,9 +261,9 @@ class Go2SimCfg(InteractiveSceneCfg):
         spawn=sim_utils.CapsuleCfg(
             radius=0.2, height=1.6, axis="Z",
             rigid_props=sim_utils.RigidBodyPropertiesCfg(
-                rigid_body_enabled=True,            # 动态刚体
-                kinematic_enabled=False,            # 由物理驱动（别设成kinematic）
-                solver_position_iteration_count=16, # 稳定性
+                rigid_body_enabled=True,
+                kinematic_enabled=False,
+                solver_position_iteration_count=16,
                 solver_velocity_iteration_count=2,
                 max_depenetration_velocity=5.0
             ),
@@ -271,7 +273,7 @@ class Go2SimCfg(InteractiveSceneCfg):
                 rest_offset=0.0
             ),
             visual_material=sim_utils.PreviewSurfaceCfg(
-                diffuse_color=(0.2, 0.9, 0.2)  # 绿色
+                diffuse_color=(0.2, 0.9, 0.2)
             )
         ),
         init_state=RigidObjectCfg.InitialStateCfg(pos=(-6.0, 5.0, 0.9))
@@ -282,9 +284,9 @@ class Go2SimCfg(InteractiveSceneCfg):
         spawn=sim_utils.CapsuleCfg(
             radius=0.2, height=1.6, axis="Z", 
             rigid_props=sim_utils.RigidBodyPropertiesCfg(
-                rigid_body_enabled=True,            # 动态刚体
-                kinematic_enabled=False,            # 由物理驱动（别设成kinematic）
-                solver_position_iteration_count=16, # 稳定性
+                rigid_body_enabled=True,
+                kinematic_enabled=False,
+                solver_position_iteration_count=16,
                 solver_velocity_iteration_count=2,
                 max_depenetration_velocity=5.0
             ),
@@ -294,10 +296,171 @@ class Go2SimCfg(InteractiveSceneCfg):
                 rest_offset=0.0
             ),
             visual_material=sim_utils.PreviewSurfaceCfg(
-                diffuse_color=(0.2, 0.2, 0.9)  # 蓝色
+                diffuse_color=(0.2, 0.2, 0.9)
             )
         ),
         init_state=RigidObjectCfg.InitialStateCfg(pos=(8.0, -5.0, 0.9))
+    )
+
+    human_obstacle_4: RigidObjectCfg = RigidObjectCfg(
+        prim_path="{ENV_REGEX_NS}/HumanObstacles/Human_04",
+        spawn=sim_utils.CapsuleCfg(
+            radius=0.2, height=1.6, axis="Z",
+            rigid_props=sim_utils.RigidBodyPropertiesCfg(
+                rigid_body_enabled=True,
+                kinematic_enabled=False,
+                solver_position_iteration_count=16,
+                solver_velocity_iteration_count=2,
+                max_depenetration_velocity=5.0
+            ),
+            collision_props=sim_utils.CollisionPropertiesCfg(
+                collision_enabled=True,
+                contact_offset=0.01,
+                rest_offset=0.0
+            ),
+            visual_material=sim_utils.PreviewSurfaceCfg(
+                diffuse_color=(0.9, 0.9, 0.2)  # 黄色
+            )
+        ),
+        init_state=RigidObjectCfg.InitialStateCfg(pos=(-4.0, -7.0, 0.9))
+    )
+
+    human_obstacle_5: RigidObjectCfg = RigidObjectCfg(
+        prim_path="{ENV_REGEX_NS}/HumanObstacles/Human_05",
+        spawn=sim_utils.CapsuleCfg(
+            radius=0.2, height=1.6, axis="Z",
+            rigid_props=sim_utils.RigidBodyPropertiesCfg(
+                rigid_body_enabled=True,
+                kinematic_enabled=False,
+                solver_position_iteration_count=16,
+                solver_velocity_iteration_count=2,
+                max_depenetration_velocity=5.0
+            ),
+            collision_props=sim_utils.CollisionPropertiesCfg(
+                collision_enabled=True,
+                contact_offset=0.01,
+                rest_offset=0.0
+            ),
+            visual_material=sim_utils.PreviewSurfaceCfg(
+                diffuse_color=(0.9, 0.2, 0.9)  # 紫色
+            )
+        ),
+        init_state=RigidObjectCfg.InitialStateCfg(pos=(10.0, 2.0, 0.9))
+    )
+
+    human_obstacle_6: RigidObjectCfg = RigidObjectCfg(
+        prim_path="{ENV_REGEX_NS}/HumanObstacles/Human_06",
+        spawn=sim_utils.CapsuleCfg(
+            radius=0.2, height=1.6, axis="Z",
+            rigid_props=sim_utils.RigidBodyPropertiesCfg(
+                rigid_body_enabled=True,
+                kinematic_enabled=False,
+                solver_position_iteration_count=16,
+                solver_velocity_iteration_count=2,
+                max_depenetration_velocity=5.0
+            ),
+            collision_props=sim_utils.CollisionPropertiesCfg(
+                collision_enabled=True,
+                contact_offset=0.01,
+                rest_offset=0.0
+            ),
+            visual_material=sim_utils.PreviewSurfaceCfg(
+                diffuse_color=(0.2, 0.9, 0.9)  # 青色
+            )
+        ),
+        init_state=RigidObjectCfg.InitialStateCfg(pos=(-8.0, -2.0, 0.9))
+    )
+
+    human_obstacle_7: RigidObjectCfg = RigidObjectCfg(
+        prim_path="{ENV_REGEX_NS}/HumanObstacles/Human_07",
+        spawn=sim_utils.CapsuleCfg(
+            radius=0.2, height=1.6, axis="Z",
+            rigid_props=sim_utils.RigidBodyPropertiesCfg(
+                rigid_body_enabled=True,
+                kinematic_enabled=False,
+                solver_position_iteration_count=16,
+                solver_velocity_iteration_count=2,
+                max_depenetration_velocity=5.0
+            ),
+            collision_props=sim_utils.CollisionPropertiesCfg(
+                collision_enabled=True,
+                contact_offset=0.01,
+                rest_offset=0.0
+            ),
+            visual_material=sim_utils.PreviewSurfaceCfg(
+                diffuse_color=(0.9, 0.5, 0.2)  # 橙色
+            )
+        ),
+        init_state=RigidObjectCfg.InitialStateCfg(pos=(3.0, -10.0, 0.9))
+    )
+
+    human_obstacle_8: RigidObjectCfg = RigidObjectCfg(
+        prim_path="{ENV_REGEX_NS}/HumanObstacles/Human_08",
+        spawn=sim_utils.CapsuleCfg(
+            radius=0.2, height=1.6, axis="Z",
+            rigid_props=sim_utils.RigidBodyPropertiesCfg(
+                rigid_body_enabled=True,
+                kinematic_enabled=False,
+                solver_position_iteration_count=16,
+                solver_velocity_iteration_count=2,
+                max_depenetration_velocity=5.0
+            ),
+            collision_props=sim_utils.CollisionPropertiesCfg(
+                collision_enabled=True,
+                contact_offset=0.01,
+                rest_offset=0.0
+            ),
+            visual_material=sim_utils.PreviewSurfaceCfg(
+                diffuse_color=(0.5, 0.9, 0.5)  # 浅绿
+            )
+        ),
+        init_state=RigidObjectCfg.InitialStateCfg(pos=(0.0, 12.0, 0.9))
+    )
+
+    human_obstacle_9: RigidObjectCfg = RigidObjectCfg(
+        prim_path="{ENV_REGEX_NS}/HumanObstacles/Human_09",
+        spawn=sim_utils.CapsuleCfg(
+            radius=0.2, height=1.6, axis="Z",
+            rigid_props=sim_utils.RigidBodyPropertiesCfg(
+                rigid_body_enabled=True,
+                kinematic_enabled=False,
+                solver_position_iteration_count=16,
+                solver_velocity_iteration_count=2,
+                max_depenetration_velocity=5.0
+            ),
+            collision_props=sim_utils.CollisionPropertiesCfg(
+                collision_enabled=True,
+                contact_offset=0.01,
+                rest_offset=0.0
+            ),
+            visual_material=sim_utils.PreviewSurfaceCfg(
+                diffuse_color=(0.9, 0.5, 0.9)  # 粉色
+            )
+        ),
+        init_state=RigidObjectCfg.InitialStateCfg(pos=(7.0, 0.0, 0.9))
+    )
+
+    human_obstacle_10: RigidObjectCfg = RigidObjectCfg(
+        prim_path="{ENV_REGEX_NS}/HumanObstacles/Human_10",
+        spawn=sim_utils.CapsuleCfg(
+            radius=0.2, height=1.6, axis="Z",
+            rigid_props=sim_utils.RigidBodyPropertiesCfg(
+                rigid_body_enabled=True,
+                kinematic_enabled=False,
+                solver_position_iteration_count=16,
+                solver_velocity_iteration_count=2,
+                max_depenetration_velocity=5.0
+            ),
+            collision_props=sim_utils.CollisionPropertiesCfg(
+                collision_enabled=True,
+                contact_offset=0.01,
+                rest_offset=0.0
+            ),
+            visual_material=sim_utils.PreviewSurfaceCfg(
+                diffuse_color=(0.5, 0.5, 0.9)  # 浅蓝
+            )
+        ),
+        init_state=RigidObjectCfg.InitialStateCfg(pos=(-5.0, 10.0, 0.9))
     )
     
 @configclass
@@ -380,6 +543,7 @@ class CurriculumCfg:
 @configclass
 class Go2RSLEnvCfg(ManagerBasedRLEnvCfg):
     """Configuration for the Go2 environment."""
+    human_obstacle_system: bool = False
     # scene settings
     scene = Go2SimCfg(num_envs=2, env_spacing=2.0)
 
@@ -416,6 +580,12 @@ class Go2RSLEnvCfg(ManagerBasedRLEnvCfg):
 
         if self.scene.height_scanner is not None:
             self.scene.height_scanner.update_period = self.decimation * self.sim.dt
+        # 根据开关切换是否包含人形障碍
+        if self.human_obstacle_system:
+            self.scene = Go2SimWithHumansCfg(
+                num_envs=self.scene.num_envs,
+                env_spacing=self.scene.env_spacing,
+            )
 
 def camera_follow(env, distance=8.0, pitch_deg=45.0):
     """摄像头跟随机器人
