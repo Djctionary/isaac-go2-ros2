@@ -38,16 +38,16 @@ class HumanMovementController:
         
         # Define initial positions for 10 humans (distributed around the robot)
         self.initial_positions = [
-            (5.0, 8.0, 0.9),    # 人形障碍 1 - 前右
-            (-6.0, 5.0, 0.9),   # 人形障碍 2 - 左前
-            (8.0, -5.0, 0.9),   # 人形障碍 3 - 右后
-            (-4.0, -7.0, 0.9),  # 人形障碍 4 - 左后
-            (10.0, 2.0, 0.9),   # 人形障碍 5 - 右侧
-            (-8.0, -2.0, 0.9),  # 人形障碍 6 - 左侧
-            (3.0, -10.0, 0.9),  # 人形障碍 7 - 后方
-            (0.0, 12.0, 0.9),   # 人形障碍 8 - 正前方
-            (7.0, 0.0, 0.9),    # 人形障碍 9 - 正右方
-            (-5.0, 10.0, 0.9),  # 人形障碍 10 - 左前远处
+            (5.0, 8.0, 1.0),    # 人形障碍 1 - 前右
+            (-6.0, 5.0, 1.0),   # 人形障碍 2 - 左前
+            (8.0, -5.0, 1.0),   # 人形障碍 3 - 右后
+            (-4.0, -7.0, 1.0),  # 人形障碍 4 - 左后
+            (10.0, 2.0, 1.0),   # 人形障碍 5 - 右侧
+            (-8.0, -2.0, 1.0),  # 人形障碍 6 - 左侧
+            (3.0, -10.0, 1.0),  # 人形障碍 7 - 后方
+            (0.0, 12.0, 1.0),   # 人形障碍 8 - 正前方
+            (7.0, 0.0, 1.0),    # 人形障碍 9 - 正右方
+            (-5.0, 10.0, 1.0),  # 人形障碍 10 - 左前远处
         ][:num_humans]  # Take only the required number
     
     def update_positions(self, env, dt: float):
@@ -77,6 +77,8 @@ class HumanMovementController:
                 human_obj.write_root_pose_to_sim(
                     root_pose=torch.cat([position_tensor, orientation_tensor], dim=-1)
                 )
+                human_obj.write_data_to_sim()
+                human_obj.update(env.cfg.sim.dt)
             
         except Exception as e:
             print(f"⚠️ 更新人形障碍物位置失败: {e}")
@@ -84,7 +86,7 @@ class HumanMovementController:
     def _calculate_movement_position(self, human_id: int) -> Tuple[float, float, float]:
         """Calculate new position - first 5 move along X axis, last 5 move along Y axis"""
         if human_id >= len(self.initial_positions):
-            return (0.0, 0.0, 0.9)
+            return (0.0, 0.0, 1.0)
             
         original_pos = self.initial_positions[human_id]
         time = self.simulation_time
@@ -130,6 +132,8 @@ class HumanMovementController:
                 human_obj.write_root_pose_to_sim(
                     root_pose=torch.cat([position_tensor, orientation_tensor], dim=-1)
                 )
+                human_obj.write_data_to_sim()
+                human_obj.update(env.cfg.sim.dt)
             
             print(f"✅ 已重置 {len(human_objects)} 个人形障碍物到初始位置")
             

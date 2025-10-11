@@ -45,6 +45,35 @@ import carb
 import go2.go2_ctrl as go2_ctrl
 import ros2.go2_ros2_bridge as go2_ros2_bridge
 
+def _ensure_path(path: str):
+    stage = omni.usd.get_context().get_stage()
+    if not stage.GetPrimAtPath(path):
+        stage.DefinePrim(path, "Xform")
+    return stage
+
+def ignore_statics_for_humans(humans_glob="{ENV_REGEX_NS}/HumanObstacles/*",
+                              statics=["/World/ground"]):
+    stage = omni.usd.get_context().get_stage()
+
+    # 1) Build a CollisionGroup for all human capsules
+    human_group_path = Sdf.Path("/World/CollisionGroups/HUMANS")
+    stage = _ensure_path("/World/CollisionGroups")
+    humans_cg = UsdPhysics.CollisionGroup.Define(stage, human_group_path)
+    humans_coll = humans_cg.CreateCollectionAPI()
+    # include all human obstacle prims with one wildcard
+    humans_coll.GetIncludesRel().AddTarget(Sdf.Path(humans_glob))
+
+    # 2) Build a CollisionGroup for statics (ground + your static meshes)
+    static_group_path = Sdf.Path("/World/CollisionGroups/STATICS")
+    statics_cg = UsdPhysics.CollisionGroup.Define(stage, static_group_path)
+    statics_coll = statics_cg.CreateCollectionAPI()
+    for p in statics:
+        statics_coll.GetIncludesRel().AddTarget(Sdf.Path(p))
+
+    # 3) Filter collisions between HUMANS and STATICS (HUMANS still collide with robot)
+    UsdPhysics.FilteredPairsAPI.Apply(humans_cg.GetPrim()) \
+        .GetFilteredPairsRel() \
+        .AddTarget(static_group_path)
 
 def disable_direct_gpu_api():
     try:
@@ -68,6 +97,7 @@ def check_and_print_up_axis():
     except Exception as e:
         print(f"⚠️ 检查 upAxis 失败: {e}")
 
+
 def set_robot_root_pose(env, x=0.0, y=0.0, z=0.0, yaw_deg=0.0):
     """将机器人根位姿设置到给定位置与航向（仅根，不改关节）。
     """
@@ -82,19 +112,9 @@ def set_robot_root_pose(env, x=0.0, y=0.0, z=0.0, yaw_deg=0.0):
         rs[0, 3:7] = torch.tensor([w, 0.0, 0.0, zq], device=rs.device)
         rs[0, 7:13] = 0.0
         robot.write_root_state_to_sim(rs)
+        robot.write_data_to_sim()
+        robot.update(env.cfg.sim.dt)
 
-        jpos = robot.data.default_joint_pos.clone()
-        jvel = robot.data.default_joint_vel.clone()
-        robot.write_joint_state_to_sim(jpos, jvel)
-
-        # 清控制目标（避免上一帧目标“抬脚”）
-        robot.set_joint_position_target(jpos)
-
-        # 清内部缓存（关键一步）
-        robot.reset()
-
-        if hasattr(env.unwrapped, 'scene') and hasattr(env.unwrapped.scene, 'write_data_to_sim'):
-            env.unwrapped.scene.write_data_to_sim()
         return True
     except Exception as e:
         print(f"⚠️ 设置根位姿失败: {e}")
@@ -128,7 +148,6 @@ def run_simulator(cfg):
     go2_env_cfg.sim.render_interval = go2_env_cfg.decimation
     go2_ctrl.init_base_vel_cmd(cfg.num_envs)
     
-    # 预创建动态障碍物Prim - 必须在环境创建前
     if cfg.env_name == "obstacle-dynamic":
         import isaacsim.core.utils.prims as prim_utils
         
