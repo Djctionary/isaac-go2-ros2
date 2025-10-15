@@ -85,6 +85,8 @@ The current implementation contains a few environments which can be found on ```
 - ```warehouse-forklifts```: A warehouse environment with forklifts.
 - ```warehouse-shelves```: A warehouse environment with shelves.
 - ```full-warehouse```: A full warehouse environment containing everything.
+- ```obstacle-empty```: An empty flat terrain environment without any obstacles.
+- ```obstacle-empty-rough```: An empty rough terrain environment without obstacles (ideal for testing rough terrain navigation).
 - ```obstacle-sparse```: A sparse obstacle field environment.
 - ```obstacle-medium```: A  medium obstacle field environment.
 - ```obstacle-dense```: A dense obstacle field environment.

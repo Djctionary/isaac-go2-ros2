@@ -6,9 +6,11 @@ except ModuleNotFoundError:
     import isaacsim.core.utils.nucleus as nucleus_utils
 from isaaclab.terrains import TerrainImporterCfg, TerrainImporter
 from isaaclab.terrains import TerrainGeneratorCfg
+from isaaclab.terrains.height_field import hf_terrains_cfg
 from env.terrain_cfg import HfUniformDiscreteObstaclesTerrainCfg
 from go2.self_go2_env import create_human_obstacle_system as create_controller
 import omni.replicator.core as rep
+from isaaclab.sim.spawners.materials.visual_materials_cfg import PreviewSurfaceCfg
 try:
     import omni.usd
     import omni.kit.commands
@@ -106,6 +108,107 @@ def create_obstacle_dense_env():
             )},
         ),
         visual_material=None,     
+    )
+    TerrainImporter(terrain)
+
+
+def create_obstacle_empty_env():
+    """
+    创建空旷环境 - 只有平地,没有任何障碍物
+    """
+    add_semantic_label()
+    # Terrain - 只创建平坦地形,障碍物数量设为0
+    terrain = TerrainImporterCfg(
+        prim_path="/World/obstacleTerrain",
+        terrain_type="generator",
+        terrain_generator=TerrainGeneratorCfg(
+            seed=0,
+            size=(50, 50),
+            color_scheme="height",
+            sub_terrains={"t1": HfUniformDiscreteObstaclesTerrainCfg(
+                seed=0,
+                size=(50, 50),
+                obstacle_width_range=(0.5, 1.0),
+                obstacle_height_range=(1.0, 2.0),
+                num_obstacles=0,  # 无障碍物
+                obstacles_distance=2.0,
+                border_width=5,
+                avoid_positions=[[0, 0]]
+            )},
+        ),
+        visual_material=None,     
+    )
+    TerrainImporter(terrain)
+
+
+def create_obstacle_empty_rough_env():
+    """
+    创建空旷崎岖环境 - 随机崎岖地形,没有任何障碍物
+    使用IsaacLab内置的随机地形生成器
+    """
+    add_semantic_label()
+    # Terrain - 使用随机崎岖地形,无障碍物
+    terrain = TerrainImporterCfg(
+        prim_path="/World/roughTerrain",
+        terrain_type="generator",
+        terrain_generator=TerrainGeneratorCfg(
+            seed=0,
+            size=(50, 50),
+            color_scheme="height",
+            sub_terrains={
+                "random_rough": hf_terrains_cfg.HfRandomUniformTerrainCfg(
+                    proportion=1.0,
+                    noise_range=(0.02, 0.10),  # 随机噪声范围,控制地形起伏
+                    noise_step=0.02,
+                    border_width=5.0,
+                    size=(50, 50),
+                )
+            },
+        ),
+        visual_material=PreviewSurfaceCfg(diffuse_color=(0.25, 0.20, 0.15)),
+    )
+    TerrainImporter(terrain)
+
+
+def create_obstacle_rough_mixed_env():
+    """
+    创建崎岖+离散障碍混合环境：
+    - 基底为随机崎岖高度场(HfRandomUniformTerrainCfg)
+    - 叠加离散方块障碍(HfUniformDiscreteObstaclesTerrainCfg)
+    两者通过 sub_terrains 同时启用（最简合成方式）。
+    """
+    add_semantic_label()
+    terrain = TerrainImporterCfg(
+        prim_path="/World/roughMixedTerrain",
+        terrain_type="generator",
+        terrain_generator=TerrainGeneratorCfg(
+            seed=0,
+            size=(50, 50),
+            color_scheme="height",
+            sub_terrains={
+                # 粗糙随机地形作为基底
+                "rough": hf_terrains_cfg.HfRandomUniformTerrainCfg(
+                    proportion=0.6,
+                    noise_range=(0.02, 0.10),
+                    noise_step=0.02,
+                    border_width=5.0,
+                    size=(50, 50),
+                ),
+                # 离散障碍（数量可根据需要调整）
+                "discrete": HfUniformDiscreteObstaclesTerrainCfg(
+                    proportion=0.4,
+                    seed=0,
+                    size=(50, 50),
+                    obstacle_width_range=(0.5, 1.0),
+                    obstacle_height_range=(0.5, 1.5),
+                    num_obstacles=150,
+                    obstacles_distance=2.0,
+                    border_width=5,
+                    avoid_positions=[[0, 0]],
+                ),
+            },
+        ),
+        visual_material=PreviewSurfaceCfg(diffuse_color=(0.25, 0.20, 0.15)),
     )
     TerrainImporter(terrain)
 

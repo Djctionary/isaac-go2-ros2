@@ -162,7 +162,13 @@ def run_simulator(cfg):
     env, policy = go2_ctrl.get_rsl_rough_policy(go2_env_cfg)
 
     # Simulation environment
-    if (cfg.env_name == "obstacle-dense"):
+    if (cfg.env_name == "obstacle-empty"):
+        sim_env.create_obstacle_empty_env() # empty environment without obstacles
+    elif (cfg.env_name == "obstacle-empty-rough"):
+        sim_env.create_obstacle_empty_rough_env() # empty rough terrain without obstacles
+    elif (cfg.env_name == "obstacle-rough-mixed"):
+        sim_env.create_obstacle_rough_mixed_env() # rough base + discrete obstacles
+    elif (cfg.env_name == "obstacle-dense"):
         sim_env.create_obstacle_dense_env() # obstacles dense
     elif (cfg.env_name == "obstacle-medium"):
         sim_env.create_obstacle_medium_env() # obstacles medium
