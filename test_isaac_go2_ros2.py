@@ -36,6 +36,7 @@ simulation_app = app_launcher.app
 """Rest everything follows."""
 
 import torch
+import numpy as np
 
 from go2.self_go2_env import Go2RSLEnvCfg, camera_follow
 import env.sim_env as sim_env
@@ -44,6 +45,11 @@ import omni
 import carb
 import go2.go2_ctrl as go2_ctrl
 import ros2.go2_ros2_bridge as go2_ros2_bridge
+from isaaclab.markers import VisualizationMarkers, VisualizationMarkersCfg
+from isaaclab.markers.config import GREEN_ARROW_X_MARKER_CFG
+
+# 全局速度箭头标记器
+velocity_arrow_marker = None
 
 def _ensure_path(path: str):
     stage = omni.usd.get_context().get_stage()
@@ -96,6 +102,60 @@ def check_and_print_up_axis():
         print(f"🌍 Stage upAxis: {up_axis}")
     except Exception as e:
         print(f"⚠️ 检查 upAxis 失败: {e}")
+
+def draw_velocity_arrow(env):
+    """在GUI上用绿色箭头绘制导航节点发送的目标速度指令"""
+    global velocity_arrow_marker
+    try:
+        # 获取机器人位置
+        robot = env.unwrapped.scene["unitree_go2"]
+        pos = robot.data.root_state_w[0, :3]
+        
+        # 获取从导航节点接收到的目标速度指令（base坐标系下）
+        if go2_ctrl.base_vel_cmd_input is not None:
+            # base_vel_cmd_input格式: [linear.x, linear.y, angular.z]
+            cmd_vel = go2_ctrl.base_vel_cmd_input[0]
+            vel_x, vel_y = cmd_vel[0].item(), cmd_vel[1].item()  # 线速度XY
+            
+            # 获取机器人当前朝向（四元数转换为yaw角）
+            quat = robot.data.root_state_w[0, 3:7]  # [w,x,y,z]
+            # 计算yaw角（绕Z轴旋转）
+            yaw = torch.atan2(
+                2.0 * (quat[0] * quat[3] + quat[1] * quat[2]),
+                1.0 - 2.0 * (quat[2]**2 + quat[3]**2)
+            )
+            
+            # 将base坐标系速度转换到世界坐标系
+            cos_yaw, sin_yaw = torch.cos(yaw), torch.sin(yaw)
+            vel_world_x = vel_x * cos_yaw - vel_y * sin_yaw
+            vel_world_y = vel_x * sin_yaw + vel_y * cos_yaw
+            
+            # 速度向量长度（用于可视化）——按目标速度大小缩放箭头长度（米）
+            vel_mag = torch.sqrt(torch.tensor(vel_x**2 + vel_y**2, device=pos.device))
+            if vel_mag.item() > 0.01:  # 只有速度足够大时才显示
+                # 箭头长度：0.0~2.0m，线性映射速度幅值，避免过长
+                arrow_len = torch.clamp(vel_mag, 0.25, 2.0)
+                # 归一化方向
+                inv_mag = 1.0 / vel_mag
+                vel_world_x_norm = vel_world_x * inv_mag
+                vel_world_y_norm = vel_world_y * inv_mag
+                
+                # 计算箭头朝向（四元数）
+                # 箭头默认指向X方向，需要旋转到速度方向
+                arrow_yaw = torch.atan2(vel_world_y_norm, vel_world_x_norm)
+                arrow_quat = torch.tensor([
+                    torch.cos(arrow_yaw/2.0), 0.0, 0.0, torch.sin(arrow_yaw/2.0)
+                ], device=pos.device).unsqueeze(0)  # [1, 4]
+                
+                # 更新标记位置、朝向和缩放（用scale的X轴表示箭头长度）
+                if velocity_arrow_marker is not None:
+                    velocity_arrow_marker.visualize(
+                        translations=pos.unsqueeze(0),  # [1, 3]
+                        orientations=arrow_quat,        # [1, 4] (w,x,y,z)
+                        scales=torch.tensor([[arrow_len.item(), 0.15, 0.15]], device=pos.device)
+                    )
+    except Exception as e:
+        pass  # 静默处理错误，避免干扰主循环
 
 
 def set_robot_root_pose(env, x=0.0, y=0.0, z=0.0, yaw_deg=0.0):
@@ -253,6 +313,14 @@ def run_simulator(cfg):
     # Run simulation
     sim_step_dt = float(go2_env_cfg.sim.dt * go2_env_cfg.decimation)
     obs, _ = env.reset()
+    
+    # 创建速度箭头可视化标记器
+    global velocity_arrow_marker
+    marker_cfg = GREEN_ARROW_X_MARKER_CFG.copy()
+    marker_cfg.prim_path = "/Visuals/VelocityArrow"
+    marker_cfg.markers["arrow"].scale = (1.0, 0.15, 0.15)  # 长度1米，粗细0.15米
+    velocity_arrow_marker = VisualizationMarkers(marker_cfg)
+    print("✅ 速度箭头可视化已启用")
     while simulation_app.is_running():
         start_time = time.time()
         with torch.inference_mode():            
@@ -293,6 +361,9 @@ def run_simulator(cfg):
             # step the environment
             obs, rew, _, _ = env.step(actions)
             avg_rew = float(rew.mean().item())
+
+            # 绘制机器人速度箭头
+            draw_velocity_arrow(env)
 
             # 更新专业级动态障碍物 - 使用RigidObjectCfg标准架构
             if cfg.env_name == "obstacle-dynamic":
