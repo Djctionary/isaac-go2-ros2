@@ -3,6 +3,7 @@ from rclpy.node import Node
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import PoseStamped, Twist, TransformStamped
 from sensor_msgs.msg import PointCloud2, PointField, Image, Imu
+from visualization_msgs.msg import MarkerArray, Marker
 from sensor_msgs_py import point_cloud2
 from tf2_ros import TransformBroadcaster
 from tf2_ros.static_transform_broadcaster import StaticTransformBroadcaster
@@ -38,6 +39,9 @@ class RobotDataManager(Node):
         self.cameras = cameras
         self.points = []
         
+        # 目标坐标存储
+        self.current_goal_pos = [None] * self.num_envs
+        
         # ROS2 Broadcaster
         self.broadcaster= TransformBroadcaster(self)
         
@@ -53,6 +57,7 @@ class RobotDataManager(Node):
         self.color_img_sub = []
         self.depth_img_sub = []
         self.semantic_seg_img_sub = []
+        self.goal_marker_sub = []
 
         # ROS2 Timer
         self.lidar_publish_timer = []
@@ -80,6 +85,10 @@ class RobotDataManager(Node):
                     self.create_subscription(Image, "/unitree_go2/front_cam/semantic_segmentation_image", 
                     lambda msg: self.semantic_segmentation_callback(msg, 0), 10)
                 )
+                self.goal_marker_sub.append(
+                    self.create_subscription(MarkerArray, "/navigation_runner/goal", 
+                    lambda msg: self.goal_marker_callback(msg, 0), 10)
+                )
             else:
                 self.odom_pub.append(
                     self.create_publisher(Odometry, f"unitree_go2_{i}/odom", 10))
@@ -102,6 +111,10 @@ class RobotDataManager(Node):
                 self.semantic_seg_img_sub.append(
                     self.create_subscription(Image, f"/unitree_go2_{i}/front_cam/semantic_segmentation_image", 
                     lambda msg, env_idx=i: self.semantic_segmentation_callback(msg, env_idx), 10)
+                )
+                self.goal_marker_sub.append(
+                    self.create_subscription(MarkerArray, "/navigation_runner/goal", 
+                    lambda msg, env_idx=i: self.goal_marker_callback(msg, env_idx), 10)
                 )
         
         # self.create_timer(0.1, self.pub_ros2_data_callback)
@@ -409,6 +422,27 @@ class RobotDataManager(Node):
         bridge = CvBridge()
         image_msg = bridge.cv2_to_imgmsg(color_mapped_image, encoding='rgb8')
         self.semantic_seg_img_vis_pub[env_idx].publish(image_msg)
+
+    def goal_marker_callback(self, msg, env_idx):
+        """处理目标坐标 MarkerArray 消息"""
+        try:
+            if len(msg.markers) > 0:
+                marker = msg.markers[0]
+                if marker.type == Marker.SPHERE or marker.type == Marker.CYLINDER or marker.type == Marker.CUBE:
+                    # 提取位置坐标
+                    goal_pos = [
+                        marker.pose.position.x,
+                        marker.pose.position.y, 
+                        marker.pose.position.z
+                    ]
+                    self.current_goal_pos[env_idx] = goal_pos
+                else:
+                    print(f"环境 {env_idx} 收到非位置类型的 Marker: {marker.type}")
+            else:
+                # 清空目标坐标
+                self.current_goal_pos[env_idx] = None
+        except Exception as e:
+            print(f"处理目标坐标消息失败: {e}")
 
 
     def pub_image_graph(self):

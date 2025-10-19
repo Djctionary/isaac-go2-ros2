@@ -47,9 +47,12 @@ import go2.go2_ctrl as go2_ctrl
 import ros2.go2_ros2_bridge as go2_ros2_bridge
 from isaaclab.markers import VisualizationMarkers, VisualizationMarkersCfg
 from isaaclab.markers.config import GREEN_ARROW_X_MARKER_CFG
+import isaaclab.sim as sim_utils
 
 # 全局速度箭头标记器
 velocity_arrow_marker = None
+goal_marker = None
+current_goal_pos = None
 
 def _ensure_path(path: str):
     stage = omni.usd.get_context().get_stage()
@@ -113,7 +116,6 @@ def draw_velocity_arrow(env):
         
         # 获取从导航节点接收到的目标速度指令（base坐标系下）
         if go2_ctrl.base_vel_cmd_input is not None:
-            # base_vel_cmd_input格式: [linear.x, linear.y, angular.z]
             cmd_vel = go2_ctrl.base_vel_cmd_input[0]
             vel_x, vel_y = cmd_vel[0].item(), cmd_vel[1].item()  # 线速度XY
             
@@ -132,9 +134,8 @@ def draw_velocity_arrow(env):
             
             # 速度向量长度（用于可视化）——按目标速度大小缩放箭头长度（米）
             vel_mag = torch.sqrt(torch.tensor(vel_x**2 + vel_y**2, device=pos.device))
-            if vel_mag.item() > 0.01:  # 只有速度足够大时才显示
-                # 箭头长度：0.0~2.0m，线性映射速度幅值，避免过长
-                arrow_len = torch.clamp(vel_mag, 0.25, 2.0)
+            if vel_mag.item() > 0.1:
+                arrow_len = torch.clamp(vel_mag, 0.1, 2.0)
                 # 归一化方向
                 inv_mag = 1.0 / vel_mag
                 vel_world_x_norm = vel_world_x * inv_mag
@@ -147,13 +148,40 @@ def draw_velocity_arrow(env):
                     torch.cos(arrow_yaw/2.0), 0.0, 0.0, torch.sin(arrow_yaw/2.0)
                 ], device=pos.device).unsqueeze(0)  # [1, 4]
                 
+                pos_offset = pos.clone()
+                pos_offset[..., 2] = pos_offset[..., 2] + 0.5 
                 # 更新标记位置、朝向和缩放（用scale的X轴表示箭头长度）
                 if velocity_arrow_marker is not None:
                     velocity_arrow_marker.visualize(
-                        translations=pos.unsqueeze(0),  # [1, 3]
+                        translations=pos_offset.unsqueeze(0),  # [1, 3]
                         orientations=arrow_quat,        # [1, 4] (w,x,y,z)
-                        scales=torch.tensor([[arrow_len.item(), 0.15, 0.15]], device=pos.device)
+                        scales=torch.tensor([[arrow_len.item(), 0.25, 0.25]], device=pos.device)
                     )
+            else:
+                if velocity_arrow_marker is not None:
+                    velocity_arrow_marker.visualize(
+                        translations=torch.tensor([[0.0, 0.0, 0.0]], device=pos.device),  # [1, 3]
+                        orientations=torch.tensor([[1.0, 0.0, 0.0, 0.0]], device=pos.device),  # [1, 4] (w,x,y,z)
+                        scales=torch.tensor([[0.0, 0.0, 0.0]], device=pos.device)
+                    )
+    except Exception as e:
+        print(f"Error drawing velocity arrow: {e}")
+
+def draw_goal_marker(env, goal_pos=None):
+    """在GUI上用红色高圆柱绘制目标坐标"""
+    global goal_marker
+    try:
+        if goal_pos is not None and goal_marker is not None:
+            goal_marker.set_visibility(True)
+            # 目标位置标记（红色高圆柱）
+            goal_marker.visualize(
+                translations=torch.tensor([[goal_pos[0], goal_pos[1], goal_pos[2] + 2.0]], device=env.device),  # 圆柱中心在目标点上方2米
+                orientations=torch.tensor([[1.0, 0.0, 0.0, 0.0]], device=env.device),  # 默认朝向
+                scales=torch.tensor([[0.5, 0.5, 10.0]], device=env.device)  # 细高圆柱：半径0.1米，高度4米
+            )
+        else:
+            if goal_marker is not None:
+                goal_marker.set_visibility(False)
     except Exception as e:
         pass  # 静默处理错误，避免干扰主循环
 
@@ -315,12 +343,27 @@ def run_simulator(cfg):
     obs, _ = env.reset()
     
     # 创建速度箭头可视化标记器
-    global velocity_arrow_marker
+    global velocity_arrow_marker, goal_marker
+    
+    # 线速度箭头（绿色）
     marker_cfg = GREEN_ARROW_X_MARKER_CFG.copy()
     marker_cfg.prim_path = "/Visuals/VelocityArrow"
-    marker_cfg.markers["arrow"].scale = (1.0, 0.15, 0.15)  # 长度1米，粗细0.15米
+    marker_cfg.markers["arrow"].scale = (1.0, 1.0, 1.0)
     velocity_arrow_marker = VisualizationMarkers(marker_cfg)
-    print("✅ 速度箭头可视化已启用")
+    
+    # 目标坐标标记器（红色高圆柱）- 自定义配置
+    goal_cfg = VisualizationMarkersCfg()
+    goal_cfg.prim_path = "/Visuals/GoalMarker"
+    goal_cfg.markers = {
+        "cylinder": sim_utils.CylinderCfg(
+            radius=0.5,
+            height=1.0,
+            visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(1.0, 0.0, 0.0)),
+        ),
+    }
+    goal_marker = VisualizationMarkers(goal_cfg)
+    
+    print("✅ 速度箭头可视化已启用（绿色箭头=速度，红色高圆柱=目标）")
     while simulation_app.is_running():
         start_time = time.time()
         with torch.inference_mode():            
@@ -362,9 +405,6 @@ def run_simulator(cfg):
             obs, rew, _, _ = env.step(actions)
             avg_rew = float(rew.mean().item())
 
-            # 绘制机器人速度箭头
-            draw_velocity_arrow(env)
-
             # 更新专业级动态障碍物 - 使用RigidObjectCfg标准架构
             if cfg.env_name == "obstacle-dynamic":
                 try:
@@ -372,9 +412,16 @@ def run_simulator(cfg):
                 except Exception as e:
                     print(f"⚠️ 更新动态障碍物失败: {e}")  # 显示错误信息以便调试
 
-            # # ROS2 data
+            # ROS2 data - 必须在绘制箭头之前处理ROS2消息
             dm.pub_ros2_data()
-            rclpy.spin_once(dm)
+            rclpy.spin_once(dm)  # 处理ROS2消息，更新base_vel_cmd_input
+            
+            # 绘制机器人速度箭头 - 在ROS2消息处理之后
+            draw_velocity_arrow(env)
+            
+            # 绘制目标坐标（从 ROS2 接收或使用默认值）
+            goal_pos = dm.current_goal_pos[0]
+            draw_goal_marker(env, goal_pos)
 
             # Camera follow - 根据模式决定是否跟随
             if not manual_camera_control:
