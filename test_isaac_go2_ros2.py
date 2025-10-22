@@ -272,6 +272,8 @@ def run_simulator(cfg):
         sim_env.create_warehouse_shelves_env() # warehouse shelves
     elif (cfg.env_name == "full-warehouse"):
         sim_env.create_full_warehouse_env() # full warehouse
+    elif (cfg.env_name == "multiple-rough-terrain"):
+        sim_env.create_multiple_rough_terrain() # multiple rough terrain
     elif (cfg.env_name.startswith("gibson-")):
         # Gibson environment: gibson-{env_name}
         env_name = cfg.env_name.replace("gibson-", "")

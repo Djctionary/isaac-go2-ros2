@@ -140,6 +140,39 @@ def create_obstacle_empty_env():
     )
     TerrainImporter(terrain)
 
+def create_multiple_rough_terrain():
+    add_semantic_label()
+    from isaaclab.terrains.config.rough import ROUGH_TERRAINS_CFG
+    from isaaclab.terrains import TerrainImporterCfg, TerrainImporter
+    from isaaclab.sim.spawners.materials.visual_materials_cfg import MdlFileCfg
+
+    terrain_gen_cfg = ROUGH_TERRAINS_CFG.replace(curriculum=False, color_scheme="none")
+
+    material_cfg = MdlFileCfg(
+        mdl_path="{NVIDIA_NUCLEUS_DIR}/Materials/Base/Architecture/Shingles_01.mdl",
+        texture_scale=(3.0, 3.0),
+        project_uvw=True,
+        albedo_brightness=1.0
+    )
+
+    # material_cfg = MdlFileCfg(
+    #     mdl_path="/opt/nvidia/mdl/vMaterials_2/Ground/Ground_Aggregate_Exposed.mdl",
+    #     texture_scale=(3.0, 3.0),
+    #     project_uvw=True,
+    #     # albedo_brightness=1.0
+    # )
+
+    terrain_imp_cfg = TerrainImporterCfg(
+        num_envs=1,
+        env_spacing=3.0,
+        prim_path="/World/ground",
+        terrain_type="generator",
+        terrain_generator=terrain_gen_cfg,
+        debug_vis=False,
+        visual_material=material_cfg
+    )
+
+    TerrainImporter(terrain_imp_cfg)
 
 def create_obstacle_empty_rough_env():
     """
