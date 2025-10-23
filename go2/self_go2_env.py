@@ -185,19 +185,48 @@ def reset_human_obstacles():
         # This will be called from the main simulation loop with env parameter
         pass  # Actual reset happens in the main loop
 
+    
+from isaaclab.terrains.config.rough import ROUGH_TERRAINS_CFG
+from isaaclab.terrains import TerrainImporterCfg, TerrainImporter
+from isaaclab.sim.spawners.materials.visual_materials_cfg import MdlFileCfg
+
+terrain_gen_cfg = ROUGH_TERRAINS_CFG.replace(curriculum=False, color_scheme="none")
+
+material_cfg = MdlFileCfg(
+    mdl_path="/opt/nvidia/mdl/vMaterials_2/Ground/Ground_Aggregate_Exposed.mdl",
+    texture_scale=(3.0, 3.0),
+    project_uvw=True,
+    # albedo_brightness=1.0
+)
+
+# material_cfg = MdlFileCfg(
+#     mdl_path="{NVIDIA_NUCLEUS_DIR}/Materials/Base/Architecture/Shingles_01.mdl",
+#     texture_scale=(3.0, 3.0),
+#     project_uvw=True,
+#     albedo_brightness=1.0
+# )
 
 @configclass
 class Go2SimCfg(InteractiveSceneCfg):
     # ground plane
-    ground = AssetBaseCfg(
-        prim_path="/World/ground",
-        spawn=sim_utils.GroundPlaneCfg(color=(0.1, 0.1, 0.1), size=(300.0, 300.0)),
-        init_state=AssetBaseCfg.InitialStateCfg(
-            pos=(0, 0, 1e-4)
-        )
+    # ground = AssetBaseCfg(
+    #     prim_path="/World/ground",
+    #     spawn=sim_utils.GroundPlaneCfg(color=(0.1, 0.1, 0.1), size=(300.0, 300.0)),
+    #     init_state=AssetBaseCfg.InitialStateCfg(
+    #         pos=(0, 0, 1e-4)
+    #     )
+    # )
+
+    ground = TerrainImporterCfg(
+        num_envs=1,
+        env_spacing=3.0,
+        prim_path="/World/roughTerrain",
+        terrain_type="generator",
+        terrain_generator=terrain_gen_cfg,
+        debug_vis=False,
+        visual_material=material_cfg
     )
-    
-    # lights
+
     # Lights
     light = AssetBaseCfg(
         prim_path="/World/Light",
@@ -219,20 +248,20 @@ class Go2SimCfg(InteractiveSceneCfg):
         #     scale=(0.2, 0.2, 0.2), 
         # ),
         init_state=UNITREE_GO2_CFG.init_state.replace(
-            pos=(0.0, 0.0, 0.2),
+            pos=(0.0, 0.0, 0.5),
         )
     )
     # Go2 foot contact sensor
     contact_forces = ContactSensorCfg(prim_path="{ENV_REGEX_NS}/Go2/.*_foot", history_length=3, track_air_time=True)
 
-    # Go2 height scanner - 使用默认地面，避免Gibson路径错误
+    # Go2 height scanner
     height_scanner = RayCasterCfg(
         prim_path="{ENV_REGEX_NS}/Go2/base",
         offset=RayCasterCfg.OffsetCfg(pos=(0.0, 0.0, 20)), 
         ray_alignment="yaw",
         pattern_cfg=patterns.GridPatternCfg(resolution=0.1, size=[1.6, 1.0]), 
         debug_vis=False,
-        mesh_prim_paths=["/World/ground"],  # 只使用默认地面，确保路径有效
+        mesh_prim_paths=["/World/roughTerrain"],
     )
 
 @configclass

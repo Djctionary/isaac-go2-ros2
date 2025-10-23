@@ -273,7 +273,8 @@ def run_simulator(cfg):
     elif (cfg.env_name == "full-warehouse"):
         sim_env.create_full_warehouse_env() # full warehouse
     elif (cfg.env_name == "multiple-rough-terrain"):
-        sim_env.create_multiple_rough_terrain() # multiple rough terrain
+        pass
+        # sim_env.create_multiple_rough_terrain() # multiple rough terrain
     elif (cfg.env_name.startswith("gibson-")):
         # Gibson environment: gibson-{env_name}
         env_name = cfg.env_name.replace("gibson-", "")
@@ -373,7 +374,7 @@ def run_simulator(cfg):
             if pending_reset:
                 obs, _ = env.reset()
                 # 手动瞬移根位姿
-                set_robot_root_pose(env, x=0.0, y=0.0, z=0.0, yaw_deg=0.0)
+                set_robot_root_pose(env, x=0.0, y=0.0, z=0.5, yaw_deg=0.0)
                 
                 # 重置动态障碍物位置
                 if cfg.env_name == "obstacle-dynamic":

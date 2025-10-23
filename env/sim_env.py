@@ -165,7 +165,7 @@ def create_multiple_rough_terrain():
     terrain_imp_cfg = TerrainImporterCfg(
         num_envs=1,
         env_spacing=3.0,
-        prim_path="/World/ground",
+        prim_path="/World/roughTerrain",
         terrain_type="generator",
         terrain_generator=terrain_gen_cfg,
         debug_vis=False,
