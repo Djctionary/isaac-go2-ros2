@@ -192,19 +192,19 @@ from isaaclab.sim.spawners.materials.visual_materials_cfg import MdlFileCfg
 
 terrain_gen_cfg = ROUGH_TERRAINS_CFG.replace(curriculum=False, color_scheme="none")
 
-material_cfg = MdlFileCfg(
-    mdl_path="/opt/nvidia/mdl/vMaterials_2/Ground/Ground_Aggregate_Exposed.mdl",
-    texture_scale=(3.0, 3.0),
-    project_uvw=True,
-    # albedo_brightness=1.0
-)
-
 # material_cfg = MdlFileCfg(
-#     mdl_path="{NVIDIA_NUCLEUS_DIR}/Materials/Base/Architecture/Shingles_01.mdl",
+#     mdl_path="/opt/nvidia/mdl/vMaterials_2/Ground/Ground_Aggregate_Exposed.mdl",
 #     texture_scale=(3.0, 3.0),
 #     project_uvw=True,
-#     albedo_brightness=1.0
+#     # albedo_brightness=1.0
 # )
+
+material_cfg = MdlFileCfg(
+    mdl_path="{NVIDIA_NUCLEUS_DIR}/Materials/Base/Stone/Gravel.mdl",
+    texture_scale=(0.5, 0.5),
+    project_uvw=True,
+    albedo_brightness=1.0
+)
 
 @configclass
 class Go2SimCfg(InteractiveSceneCfg):
