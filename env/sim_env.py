@@ -141,6 +141,10 @@ def create_obstacle_empty_env():
     TerrainImporter(terrain)
 
 def create_multiple_rough_terrain():
+    """
+    Go2SimCfg 类的height_scanner初始化时需要prim_path, 此函数暂封存, 待后续修改
+    """
+
     add_semantic_label()
     from isaaclab.terrains.config.rough import ROUGH_TERRAINS_CFG
     from isaaclab.terrains import TerrainImporterCfg, TerrainImporter

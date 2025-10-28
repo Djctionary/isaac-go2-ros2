@@ -209,23 +209,23 @@ material_cfg = MdlFileCfg(
 @configclass
 class Go2SimCfg(InteractiveSceneCfg):
     # ground plane
-    # ground = AssetBaseCfg(
-    #     prim_path="/World/ground",
-    #     spawn=sim_utils.GroundPlaneCfg(color=(0.1, 0.1, 0.1), size=(300.0, 300.0)),
-    #     init_state=AssetBaseCfg.InitialStateCfg(
-    #         pos=(0, 0, 1e-4)
-    #     )
-    # )
-
-    ground = TerrainImporterCfg(
-        num_envs=1,
-        env_spacing=3.0,
-        prim_path="/World/roughTerrain",
-        terrain_type="generator",
-        terrain_generator=terrain_gen_cfg,
-        debug_vis=False,
-        visual_material=material_cfg
+    ground = AssetBaseCfg(
+        prim_path="/World/ground",
+        spawn=sim_utils.GroundPlaneCfg(color=(0.1, 0.1, 0.1), size=(300.0, 300.0)),
+        init_state=AssetBaseCfg.InitialStateCfg(
+            pos=(0, 0, 1e-4)
+        )
     )
+
+    # ground = TerrainImporterCfg(
+    #     num_envs=1,
+    #     env_spacing=3.0,
+    #     prim_path="/World/roughTerrain",
+    #     terrain_type="generator",
+    #     terrain_generator=terrain_gen_cfg,
+    #     debug_vis=False,
+    #     visual_material=material_cfg
+    # )
 
     # Lights
     light = AssetBaseCfg(
@@ -248,7 +248,7 @@ class Go2SimCfg(InteractiveSceneCfg):
         #     scale=(0.2, 0.2, 0.2), 
         # ),
         init_state=UNITREE_GO2_CFG.init_state.replace(
-            pos=(0.0, 0.0, 0.5),
+            pos=(0.0, 0.0, 0.1),
         )
     )
     # Go2 foot contact sensor
@@ -261,7 +261,7 @@ class Go2SimCfg(InteractiveSceneCfg):
         ray_alignment="yaw",
         pattern_cfg=patterns.GridPatternCfg(resolution=0.1, size=[1.6, 1.0]), 
         debug_vis=False,
-        mesh_prim_paths=["/World/roughTerrain"],
+        mesh_prim_paths=["/World/ground"],
     )
 
 @configclass

@@ -48,6 +48,8 @@ import ros2.go2_ros2_bridge as go2_ros2_bridge
 from isaaclab.markers import VisualizationMarkers, VisualizationMarkersCfg
 from isaaclab.markers.config import GREEN_ARROW_X_MARKER_CFG
 import isaaclab.sim as sim_utils
+from isaaclab.envs.mdp import observations as mdp_obs
+from isaaclab.managers import ObservationTermCfg
 
 # 全局速度箭头标记器
 velocity_arrow_marker = None
@@ -231,6 +233,13 @@ def run_simulator(cfg):
         go2_env_cfg = Go2RSLEnvCfg(human_obstacle_system=True)
     else:
         go2_env_cfg = Go2RSLEnvCfg()
+
+    go2_env_cfg.observations.policy.gait_phase = ObservationTermCfg(
+        func=mdp_obs.gait_phase,
+        params={"freq": 3.0},
+    )
+    go2_env_cfg.gait_freq = 3.0  # Hz
+
     go2_env_cfg.scene.num_envs = cfg.num_envs
     go2_env_cfg.decimation = math.ceil(1./go2_env_cfg.sim.dt/cfg.freq)
     go2_env_cfg.sim.render_interval = go2_env_cfg.decimation
@@ -273,8 +282,7 @@ def run_simulator(cfg):
     elif (cfg.env_name == "full-warehouse"):
         sim_env.create_full_warehouse_env() # full warehouse
     elif (cfg.env_name == "multiple-rough-terrain"):
-        pass
-        # sim_env.create_multiple_rough_terrain() # multiple rough terrain
+        sim_env.create_multiple_rough_terrain() # multiple rough terrain
     elif (cfg.env_name.startswith("gibson-")):
         # Gibson environment: gibson-{env_name}
         env_name = cfg.env_name.replace("gibson-", "")
@@ -374,7 +382,7 @@ def run_simulator(cfg):
             if pending_reset:
                 obs, _ = env.reset()
                 # 手动瞬移根位姿
-                set_robot_root_pose(env, x=0.0, y=0.0, z=0.5, yaw_deg=0.0)
+                set_robot_root_pose(env, x=0.0, y=0.0, z=0.0, yaw_deg=0.0)
                 
                 # 重置动态障碍物位置
                 if cfg.env_name == "obstacle-dynamic":
